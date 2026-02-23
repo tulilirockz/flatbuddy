@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+FLATBUDDY_BINARY_NAME="flatbuddy"
+
+set -xeo pipefail
+
+invalid_args_die() {
+  printf >&2 "%s" "ERROR: Invalid number of arguments"
+  exit 1
+}
+
+invalid_args_check() {
+  USER_VALUE="${1}"
+  shift
+  INVALID=1
+  for expected_value in "${@}"; do
+    [ "${expected_value}" == "${USER_VALUE}" ] && INVALID=0
+  done
+
+  if [ "${INVALID}" == 1 ] ; then
+    printf >&2 "%s" "ERROR: Invalid argument specified for flag, expected: ${*}"
+    exit 1
+  fi
+}
+
+show_help()
+{
+	cat <<EOF
+Usage for flatbuddy build:
+
+	${FLATBUDDY_BINARY_NAME} lint
+	${FLATBUDDY_BINARY_NAME} lint [manifest.json, manifest.yaml, manifest.yml]
+
+Options:
+
+	--dry-run:			Only print the command generated
+	--verbose/--debug/-v:		Show more verbosity
+	--version:			Show version
+	--help/-h:			Show this help
+EOF
+}
+
+while :; do
+  case $1 in
+    -h | --help)
+      show_help
+      exit 0
+      ;;
+    --dry-run)
+      shift
+      FLATBUDDY_BUILD_DRY_RUN="1"
+      ;;
+    -v | -d | --verbose | --debug)
+      set -x
+      shift
+      ;;
+    -*)
+      printf >&2 "ERROR: Invalid flag '%s'\n\n" "$1"
+      show_help
+      exit 1
+      ;;
+    *)
+      if [ -n "$1" ]; then
+        FLATBUDDY_TARGET_MANIFEST="$1"
+        shift
+      else
+      	break
+      fi
+      ;;
+  esac
+done
+
+if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
+  while IFS= read -r -d '' file_to_be_checked ; do \
+    if yq '."app-id"' "${file_to_be_checked}" | grep -v "null" &>/dev/null || \
+      yq '."id"' "${file_to_be_checked}" | grep -v "null" &>/dev/null; then
+      export FLATBUDDY_TARGET_MANIFEST="${file_to_be_checked}"
+    fi
+  done < <(find . -iname '*.yaml*' -o \( -iname "*.yml*" -o -iname "*.json*" \) -print0)
+
+  if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
+    printf "%s" "Failed automatically detecting manifest and no manifest specified." 1>&2
+    exit 1
+  fi
+fi 
+
+if [ "${FLATBUDDY_BUILD_DRY_RUN}" == "1" ] ; then
+  FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS=("echo")
+fi
+
+FLATBUDDY_BUILD_BINARY="flatpak run --command=flatpak-builder org.flatpak.Builder"
+if command -v flatpak-build &>/dev/null ; then
+  FLATBUDDY_BUILD_BINARY="flatpak-builder"
+fi
+
+${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} ${FLATBUDDY_BUILD_BINARY} --default-branch=stable "$XDG_CACHE_HOME/flatpak-builder/$(basename ${FLATBUDDY_TARGET_MANIFEST})/build-dir" --state-dir "$XDG_CACHE_HOME/flatpak-builder/$(basename $FLATBUDDY_TARGET_MANIFEST)/flatpak-builder" --user --ccache --force-clean --install --disable-rofiles-fuse $FLATBUDDY_TARGET_MANIFEST
+# case "${FLATBUDDY_ACTION}" in
+#   "build")
+#     flatpak run org.flatpak.Builder --default-branch=stable $"($env.XDG_CACHE_HOME)/flatpak-builder/($manifest | path basename)/build-dir" --state-dir $"($env.XDG_CACHE_HOME)/flatpak-builder/($manifest | path basename)/flatpak-builder" --user --ccache --force-clean --install --disable-rofiles-fuse $manifest ...$rest
+#     ;;
+#   "shell")
+#     flatpak run org.flatpak.Builder --run $"($env.XDG_CACHE_HOME)/flatpak-builder/($manifest | path basename)/build-dir" $manifest ...$rest
+#     ;;
+#   "exec")
+#     flatpak run org.flatpak.Builder --run $"($env.XDG_CACHE_HOME)/flatpak-builder/($manifest | path basename)/build-dir" $manifest ...$rest
+#     ;;
+#   "lint")
+#     flatpak run --command=flatpak-builder-lint org.flatpak.Builder
+#     ;;
+#   "track")
+#     flatpak run org.flathub.flatpak-external-data-checker "$FLATBUDDY_TARGET_MANIFEST"
+#     ;;
+#   *)
+#     invalid_args_die
+#     ;;
+# esac
+
