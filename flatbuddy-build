@@ -14,6 +14,8 @@ Usage for flatbuddy build:
 
 Options:
 
+	--branch:			Default Branch to be used for the output
+	--bundle:			Generate flatpak bundle file at location
 	--dry-run:			Only print the command generated
 	--verbose/--debug/-v:		Show more verbosity
 	--version:			Show version
@@ -27,9 +29,19 @@ while :; do
       show_help
       exit 0
       ;;
-    --dry-run)
-      shift
-      FLATBUDDY_BUILD_DRY_RUN="1"
+    -b | --bundle)
+      if [ -n "$2" ]; then
+        FLATBUDDY_BUILD_BUNDLE_DEST="$2"
+        shift
+        shift
+      fi
+      ;;
+    --branch)
+      if [ -n "$2" ]; then
+        FLATBUDDY_BUILD_DEFAULT_BRANCH="$2"
+        shift
+        shift
+      fi
       ;;
     -v | -d | --verbose | --debug)
       set -x
@@ -74,13 +86,29 @@ if command -v flatpak-builder &>/dev/null ; then
   FLATBUDDY_BUILD_BINARY="flatpak-builder"
 fi
 
+FLATBUDDY_BUILD_REPO_DIRECTORY="${FLATBUDDY_BUILD_REPO_DIRECTORY:-$XDG_CACHE_HOME/flatpak-builder/$(basename $FLATBUDDY_TARGET_MANIFEST)/repo-dir}"
+FLATBUDDY_BUILD_BUILD_DIRECTORY="${FLATBUDDY_BUILD_BUILD_DIRECTORY:-$XDG_CACHE_HOME/flatpak-builder/$(basename "${FLATBUDDY_TARGET_MANIFEST}")/build-dir}"
+FLATBUDDY_BUILD_STATE_DIRECTORY="${FLATBUDDY_BUILD_STATE_DIRECTORY:-$XDG_CACHE_HOME/flatpak-builder/$(basename $FLATBUDDY_TARGET_MANIFEST)/state-dir}"
+
+if [ -n "${FLATBUDDY_BUILD_BUNDLE_DEST}" ] && [ -d "${FLATBUDDY_BUILD_REPO_DIRECTORY}" ] ; then
+  APPID_BASE="$(basename "${FLATBUDDY_TARGET_MANIFEST}")"
+  flatpak build-bundle "${FLATBUDDY_BUILD_REPO_DIRECTORY}" "${FLATBUDDY_BUILD_BUNDLE_DEST}" "app/${APPID_BASE%.*}/$(arch)/${FLATBUDDY_BUILD_DEFAULT_BRANCH:-stable}"
+  exit 0
+fi
+
 ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} ${FLATBUDDY_BUILD_BINARY} \
-  --default-branch=stable \
-  "$XDG_CACHE_HOME/flatpak-builder/$(basename ${FLATBUDDY_TARGET_MANIFEST})/build-dir" \
-  --state-dir "$XDG_CACHE_HOME/flatpak-builder/$(basename $FLATBUDDY_TARGET_MANIFEST)/flatpak-builder" \
+  "--default-branch=${FLATBUDDY_BUILD_DEFAULT_BRANCH:-stable}" \
+  "${FLATBUDDY_BUILD_BUILD_DIRECTORY}" \
+  --state-dir "${FLATBUDDY_BUILD_STATE_DIRECTORY}" \
+  --repo "${FLATBUDDY_BUILD_REPO_DIRECTORY}" \
   --user \
   --ccache \
   --install \
   --force-clean \
   --disable-rofiles-fuse \
   $FLATBUDDY_TARGET_MANIFEST
+
+if [ -n "${FLATBUDDY_BUILD_BUNDLE_DEST}" ] && [ -d "${FLATBUDDY_BUILD_REPO_DIRECTORY}" ] ; then
+  APPID_BASE="$(basename "${FLATBUDDY_TARGET_MANIFEST}")"
+  flatpak build-bundle "${FLATBUDDY_BUILD_REPO_DIRECTORY}" "${FLATBUDDY_BUILD_BUNDLE_DEST}" "${APPID_BASE%.*}"
+fi
