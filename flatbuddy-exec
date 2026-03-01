@@ -70,7 +70,7 @@ if [ "${FLATBUDDY_EXEC_DRY_RUN}" == "1" ] ; then
   FLATBUDDY_EXEC_DRY_RUN_ARGUMENTS=("echo")
 fi
 
-FLATBUDDY_EXEC_BINARY="systemd-run --user --same-dir --pty --quiet --pipe flatpak run --command=flatpak-builder org.flatpak.Builder"
+FLATBUDDY_EXEC_BINARY="flatpak run --command=flatpak-builder org.flatpak.Builder"
 if command -v flatpak-builder &>/dev/null ; then
   FLATBUDDY_EXEC_BINARY="flatpak-builder"
 fi
