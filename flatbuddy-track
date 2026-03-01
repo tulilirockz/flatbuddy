@@ -9,8 +9,8 @@ show_help()
 	cat <<EOF
 Usage for flatbuddy track:
 
-	${FLATBUDDY_BINARY_NAME} lint
-	${FLATBUDDY_BINARY_NAME} lint [manifest.json, manifest.yaml, manifest.yml]
+	${FLATBUDDY_BINARY_NAME} track
+	${FLATBUDDY_BINARY_NAME} track [manifest.json, manifest.yaml, manifest.yml]
 
 Options:
 
@@ -29,7 +29,7 @@ while :; do
       ;;
     --dry-run)
       shift
-      FLATBUDDY_LINT_DRY_RUN="1"
+      FLATBUDDY_TRACK_DRY_RUN="1"
       ;;
     -v | -d | --verbose | --debug)
       set -x
@@ -56,7 +56,6 @@ if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
     if yq '."app-id"' "${file_to_be_checked}" | grep -v "null" &>/dev/null || \
       yq '."id"' "${file_to_be_checked}" | grep -v "null" &>/dev/null; then
       export FLATBUDDY_TARGET_MANIFEST="${file_to_be_checked}"
-      export FLATBUDDY_LINT_ACTION="manifest"
     fi
   done < <(find . -maxdepth 1 \( -iname '*.yaml*' -o  -iname "*.yml*" -o -iname "*.json*" \) -print0)
 
@@ -66,14 +65,14 @@ if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
   fi
 fi 
 
-if [ "${FLATBUDDY_LINT_DRY_RUN}" == "1" ] ; then
-  FLATBUDDY_LINT_DRY_RUN_ARGUMENTS=("echo")
+if [ "${FLATBUDDY_TRACK_DRY_RUN}" == "1" ] ; then
+  FLATBUDDY_TRACK_DRY_RUN_ARGUMENTS=("echo")
 fi
 
-FLATBUDDY_LINT_BINARY="flatpak run --command=flatpak-builder-lint org.flatpak.Builder"
-if command -v flatpak-builder-lint &>/dev/null ; then
-  FLATBUDDY_LINT_BINARY="flatpak-builder-lint"
+FLATBUDDY_TRACK_BINARY="flatpak run org.flathub.flatpak-external-data-checker"
+if command -v flatpak-external-data-checker &>/dev/null ; then
+  FLATBUDDY_TRACK_BINARY="flatpak-external-data-checker"
 fi
 
-${FLATBUDDY_LINT_DRY_RUN_ARGUMENTS} ${FLATBUDDY_LINT_BINARY} \
-  "${FLATBUDDY_LINT_ACTION}" "$FLATBUDDY_TARGET_MANIFEST" "$@"
+${FLATBUDDY_TRACK_DRY_RUN_ARGUMENTS} ${FLATBUDDY_TRACK_BINARY} \
+  "$FLATBUDDY_TARGET_MANIFEST" "$@"

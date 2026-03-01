@@ -2,26 +2,7 @@
 
 FLATBUDDY_BINARY_NAME="flatbuddy"
 
-set -xeo pipefail
-
-invalid_args_die() {
-  printf >&2 "%s" "ERROR: Invalid number of arguments"
-  exit 1
-}
-
-invalid_args_check() {
-  USER_VALUE="${1}"
-  shift
-  INVALID=1
-  for expected_value in "${@}"; do
-    [ "${expected_value}" == "${USER_VALUE}" ] && INVALID=0
-  done
-
-  if [ "${INVALID}" == 1 ] ; then
-    printf >&2 "%s" "ERROR: Invalid argument specified for flag, expected: ${*}"
-    exit 1
-  fi
-}
+set -eo pipefail
 
 show_help()
 {
@@ -76,7 +57,7 @@ if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
       yq '."id"' "${file_to_be_checked}" | grep -v "null" &>/dev/null; then
       export FLATBUDDY_TARGET_MANIFEST="${file_to_be_checked}"
     fi
-  done < <(find . -iname '*.yaml*' -o \( -iname "*.yml*" -o -iname "*.json*" \) -print0)
+  done < <(find . -maxdepth 1 \( -iname '*.yaml*' -o  -iname "*.yml*" -o -iname "*.json*" \) -print0)
 
   if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
     printf "%s" "Failed automatically detecting manifest and no manifest specified." 1>&2
@@ -89,7 +70,7 @@ if [ "${FLATBUDDY_BUILD_DRY_RUN}" == "1" ] ; then
 fi
 
 FLATBUDDY_BUILD_BINARY="flatpak run --command=flatpak-builder org.flatpak.Builder"
-if command -v flatpak-build &>/dev/null ; then
+if command -v flatpak-builder &>/dev/null ; then
   FLATBUDDY_BUILD_BINARY="flatpak-builder"
 fi
 
@@ -100,26 +81,6 @@ ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} ${FLATBUDDY_BUILD_BINARY} \
   --user \
   --ccache \
   --install \
+  --force-clean \
   --disable-rofiles-fuse \
   $FLATBUDDY_TARGET_MANIFEST
-# case "${FLATBUDDY_ACTION}" in
-#   "build")
-#     flatpak run org.flatpak.Builder --default-branch=stable $"($env.XDG_CACHE_HOME)/flatpak-builder/($manifest | path basename)/build-dir" --state-dir $"($env.XDG_CACHE_HOME)/flatpak-builder/($manifest | path basename)/flatpak-builder" --user --ccache --force-clean --install --disable-rofiles-fuse $manifest ...$rest
-#     ;;
-#   "shell")
-#     flatpak run org.flatpak.Builder --run $"($env.XDG_CACHE_HOME)/flatpak-builder/($manifest | path basename)/build-dir" $manifest ...$rest
-#     ;;
-#   "exec")
-#     flatpak run org.flatpak.Builder --run $"($env.XDG_CACHE_HOME)/flatpak-builder/($manifest | path basename)/build-dir" $manifest ...$rest
-#     ;;
-#   "lint")
-#     flatpak run --command=flatpak-builder-lint org.flatpak.Builder
-#     ;;
-#   "track")
-#     flatpak run org.flathub.flatpak-external-data-checker "$FLATBUDDY_TARGET_MANIFEST"
-#     ;;
-#   *)
-#     invalid_args_die
-#     ;;
-# esac
-

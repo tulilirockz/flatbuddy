@@ -7,10 +7,10 @@ set -eo pipefail
 show_help()
 {
 	cat <<EOF
-Usage for flatbuddy track:
+Usage for flatbuddy build:
 
-	${FLATBUDDY_BINARY_NAME} lint
-	${FLATBUDDY_BINARY_NAME} lint [manifest.json, manifest.yaml, manifest.yml]
+	${FLATBUDDY_BINARY_NAME} build
+	${FLATBUDDY_BINARY_NAME} build [manifest.json, manifest.yaml, manifest.yml]
 
 Options:
 
@@ -29,7 +29,7 @@ while :; do
       ;;
     --dry-run)
       shift
-      FLATBUDDY_LINT_DRY_RUN="1"
+      FLATBUDDY_EXEC_DRY_RUN="1"
       ;;
     -v | -d | --verbose | --debug)
       set -x
@@ -56,7 +56,7 @@ if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
     if yq '."app-id"' "${file_to_be_checked}" | grep -v "null" &>/dev/null || \
       yq '."id"' "${file_to_be_checked}" | grep -v "null" &>/dev/null; then
       export FLATBUDDY_TARGET_MANIFEST="${file_to_be_checked}"
-      export FLATBUDDY_LINT_ACTION="manifest"
+      export FLATBUDDY_EXEC_ACTION="/bin/bash"
     fi
   done < <(find . -maxdepth 1 \( -iname '*.yaml*' -o  -iname "*.yml*" -o -iname "*.json*" \) -print0)
 
@@ -66,14 +66,16 @@ if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
   fi
 fi 
 
-if [ "${FLATBUDDY_LINT_DRY_RUN}" == "1" ] ; then
-  FLATBUDDY_LINT_DRY_RUN_ARGUMENTS=("echo")
+if [ "${FLATBUDDY_EXEC_DRY_RUN}" == "1" ] ; then
+  FLATBUDDY_EXEC_DRY_RUN_ARGUMENTS=("echo")
 fi
 
-FLATBUDDY_LINT_BINARY="flatpak run --command=flatpak-builder-lint org.flatpak.Builder"
-if command -v flatpak-builder-lint &>/dev/null ; then
-  FLATBUDDY_LINT_BINARY="flatpak-builder-lint"
+FLATBUDDY_EXEC_BINARY="systemd-run --user --same-dir --pty --quiet --pipe flatpak run --command=flatpak-builder org.flatpak.Builder"
+if command -v flatpak-builder &>/dev/null ; then
+  FLATBUDDY_EXEC_BINARY="flatpak-builder"
 fi
 
-${FLATBUDDY_LINT_DRY_RUN_ARGUMENTS} ${FLATBUDDY_LINT_BINARY} \
-  "${FLATBUDDY_LINT_ACTION}" "$FLATBUDDY_TARGET_MANIFEST" "$@"
+${FLATBUDDY_EXEC_DRY_RUN_ARGUMENTS} \
+  ${FLATBUDDY_EXEC_BINARY} \
+  --run "$XDG_CACHE_HOME/flatpak-builder/$(basename "${FLATBUDDY_TARGET_MANIFEST}")/build-dir" \
+  "$FLATBUDDY_TARGET_MANIFEST" ${FLATBUDDY_EXEC_ACTION} "$@"
