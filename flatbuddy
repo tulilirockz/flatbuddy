@@ -17,6 +17,7 @@ Usage:
 	${FLATBUDDY_BINARY_NAME} exec [manifest.json, manifest.yaml, manifest.yml] -- /bin/sh
 	${FLATBUDDY_BINARY_NAME} lint [manifest.json, manifest.yaml, manifest.yml]
 	${FLATBUDDY_BINARY_NAME} track [manifest.json, manifest.yaml, manifest.yml]
+	${FLATBUDDY_BINARY_NAME} inspect [appid]
 	${FLATBUDDY_BINARY_NAME} help
 	${FLATBUDDY_BINARY_NAME} version
 EOF
@@ -31,7 +32,7 @@ FLATBUDDY_COMMAND=$1
 shift
 
 case "${FLATBUDDY_COMMAND}" in
-  "build"|"exec"|"lint"|"track")
+  "build"|"exec"|"lint"|"track"|"inspect")
     FLATBUDDY_PATH="$(dirname "$(realpath "${0}")")"
     "${FLATBUDDY_PATH}/flatbuddy-${FLATBUDDY_COMMAND}" "$@"
     exit 0

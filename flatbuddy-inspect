@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+FLATBUDDY_BINARY_NAME="flatbuddy"
+
+set -eo pipefail
+
+show_help()
+{
+	cat <<EOF
+Usage for flatbuddy inspect:
+
+	${FLATBUDDY_BINARY_NAME} inspect
+	${FLATBUDDY_BINARY_NAME} inspect [appid]
+
+Options:
+
+	--user:			Run flatpak as the current user
+	--dry-run:			Only print the command generated
+	--verbose/--debug/-v:		Show more verbosity
+	--version:			Show version
+	--help/-h:			Show this help
+EOF
+}
+
+while :; do
+  case $1 in
+    -h | --help)
+      show_help
+      exit 0
+      ;;
+    --dry-run)
+      shift
+      FLATBUDDY_INSPECT_DRY_RUN="1"
+      ;;
+    -u | --user)
+      shift
+      FLATBUDDY_INSPECT_USER="1"
+      ;;
+    -v | -d | --verbose | --debug)
+      set -x
+      shift
+      ;;
+    -*)
+      printf >&2 "ERROR: Invalid flag '%s'\n\n" "$1"
+      show_help
+      exit 1
+      ;;
+    *)
+      if [ -n "$1" ]; then
+        FLATBUDDY_TARGET_APPID="$1"
+        shift
+      else
+      	break
+      fi
+      ;;
+  esac
+done
+
+if [ "${FLATBUDDY_INSPECT_USER}" == "1" ] ; then
+  FLATBUDDY_INSPECT_USER_ARGUMENTS=("--user")
+fi
+
+if [ "${FLATBUDDY_INSPECT_DRY_RUN}" == "1" ] ; then
+  FLATBUDDY_INSPECT_DRY_RUN_ARGUMENTS=("echo")
+fi
+
+  ${FLATBUDDY_BUILD_USER_ARGUMENTS} \
+${FLATBUDDY_INSPECT_DRY_RUN_ARGUMENTS} \
+  flatpak run --command=jq \
+  ${FLATBUDDY_INSPECT_USER_ARGUMENTS} \
+  "${FLATBUDDY_TARGET_APPID}" -r '."modules"|.[]|."name"' /usr/manifest.json \
+  | sed -E 's#./(.).bst#\1#' \
+  | sort -u

@@ -14,6 +14,7 @@ Usage for flatbuddy build:
 
 Options:
 
+	--user:			Run flatpak as the current user
 	--branch:			Default Branch to be used for the output
 	--bundle:			Generate flatpak bundle file at location
 	--dry-run:			Only print the command generated
@@ -42,6 +43,14 @@ while :; do
         shift
         shift
       fi
+      ;;
+    --dry-run)
+      shift
+      FLATBUDDY_BUILD_DRY_RUN="1"
+      ;;
+    -u | --user)
+      shift
+      FLATBUDDY_BUILD_USER="1"
       ;;
     -v | -d | --verbose | --debug)
       set -x
@@ -81,6 +90,10 @@ if [ "${FLATBUDDY_BUILD_DRY_RUN}" == "1" ] ; then
   FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS=("echo")
 fi
 
+if [ "${FLATBUDDY_BUILD_USER}" == "1" ] ; then
+  FLATBUDDY_BUILD_USER_ARGUMENTS=("--user")
+fi
+
 FLATBUDDY_BUILD_BINARY="flatpak run --command=flatpak-builder org.flatpak.Builder"
 if command -v flatpak-builder &>/dev/null ; then
   FLATBUDDY_BUILD_BINARY="flatpak-builder"
@@ -97,6 +110,7 @@ if [ -n "${FLATBUDDY_BUILD_BUNDLE_DEST}" ] && [ -d "${FLATBUDDY_BUILD_REPO_DIREC
 fi
 
 ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} ${FLATBUDDY_BUILD_BINARY} \
+  ${FLATBUDDY_BUILD_USER_ARGUMENTS} \
   "--default-branch=${FLATBUDDY_BUILD_DEFAULT_BRANCH:-stable}" \
   "${FLATBUDDY_BUILD_BUILD_DIRECTORY}" \
   --state-dir "${FLATBUDDY_BUILD_STATE_DIRECTORY}" \
