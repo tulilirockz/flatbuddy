@@ -163,12 +163,18 @@ flatbuddy_reposign() {
 
 if [ "${FLATBUDDY_BUILD_NO_AUTO_RUNTIME}" != 1 ] ; then 
   TARGET_SDK="$(yq -rc '. | "\(.sdk),\(.runtime-version)"' "${FLATBUDDY_TARGET_MANIFEST}")"
-  if ! flatpak list --json --runtime "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" | jq -rc '.[] | "\(.application_id),\(.branch)"' | grep -F -e "${TARGET_SDK}" &>/dev/null ; then
-    echo "Missing runtime to build this flatpak, installing."
-    SDK="$(cut -f1 -d, <<< "${TARGET_SDK}")"
-    VERSION="$(cut -f2 -d, <<< "${TARGET_SDK}")"
-    ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} flatpak install "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" "runtime/${SDK}//${VERSION}"
-  fi
+  TARGET_RUNTIME="$(yq -rc '. | "\(.runtime),\(.runtime-version)"' "${FLATBUDDY_TARGET_MANIFEST}")"
+
+  for INSTALL_TARGET in $TARGET_SDK $TARGET_RUNTIME ; do
+    if ! flatpak list --json --runtime "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" | jq -rc '.[] | "\(.application_id),\(.branch)"' | grep -F -e "${INSTALL_TARGET}" &>/dev/null ; then
+
+      echo "Missing runtime to build this flatpak, installing."
+      RUNTIME="$(cut -f1 -d, <<< "${INSTALL_TARGET}")"
+      VERSION="$(cut -f2 -d, <<< "${INSTALL_TARGET}")"
+
+      ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} flatpak install "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" "runtime/${RUNTIME}//${VERSION}"
+    fi
+   done
 fi
 
 flatbuddy_bundle
