@@ -14,6 +14,7 @@ Usage for flatbuddy build:
 
 Options:
 
+	--no-auto:			Don't automatically install missing SDKs
 	--user:			Run flatpak as the current user
 	--branch:			Default Branch to be used for the output
 	--bundle:			Generate flatpak bundle file at location
@@ -35,13 +36,38 @@ while :; do
         FLATBUDDY_BUILD_BUNDLE_DEST="$2"
         shift
         shift
+      else
+        exit 1
       fi
+      ;;
+    --bundle-oci)
+      if [ "${FLATBUDDY_BUILD_BUNDLE_DEST}" == "" ]; then
+        printf "%s" "Bundle OCI option must be specified with --bundle" >&2
+        exit 1
+      fi
+      FLATBUDDY_BUILD_BUNDLE_OCI=1
+      shift
+      ;;
+    --repo-sign)
+      if [ -n "$2" ]; then
+        FLATBUDDY_BUILD_REPO_SIGN_ID="$2"
+        shift
+        shift
+      else
+        exit 1
+      fi
+      ;;
+    --no-auto)
+      FLATBUDDY_BUILD_NO_AUTO_RUNTIME="1"
+      shift
       ;;
     --branch)
       if [ -n "$2" ]; then
         FLATBUDDY_BUILD_DEFAULT_BRANCH="$2"
         shift
         shift
+      else
+        exit 1
       fi
       ;;
     --dry-run)
@@ -74,8 +100,8 @@ done
 
 if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
   while IFS= read -r -d '' file_to_be_checked ; do \
-    if yq '."app-id"' "${file_to_be_checked}" | grep -v "null" &>/dev/null || \
-      yq '."id"' "${file_to_be_checked}" | grep -v "null" &>/dev/null; then
+    if yq '."app-id"' "${file_to_be_checked}" 2>/dev/null | grep -v "null" &>/dev/null || \
+      yq '."id"' "${file_to_be_checked}" 2>/dev/null | grep -v "null" &>/dev/null; then
       export FLATBUDDY_TARGET_MANIFEST="${file_to_be_checked}"
     fi
   done < <(find . -maxdepth 1 \( -iname '*.yaml*' -o  -iname "*.yml*" -o -iname "*.json*" \) -print0)
@@ -103,14 +129,53 @@ FLATBUDDY_BUILD_REPO_DIRECTORY="${FLATBUDDY_BUILD_REPO_DIRECTORY:-$XDG_CACHE_HOM
 FLATBUDDY_BUILD_BUILD_DIRECTORY="${FLATBUDDY_BUILD_BUILD_DIRECTORY:-$XDG_CACHE_HOME/flatpak-builder/$(basename "${FLATBUDDY_TARGET_MANIFEST}")/build-dir}"
 FLATBUDDY_BUILD_STATE_DIRECTORY="${FLATBUDDY_BUILD_STATE_DIRECTORY:-$XDG_CACHE_HOME/flatpak-builder/$(basename $FLATBUDDY_TARGET_MANIFEST)/state-dir}"
 
-if [ -n "${FLATBUDDY_BUILD_BUNDLE_DEST}" ] && [ -d "${FLATBUDDY_BUILD_REPO_DIRECTORY}" ] ; then
+flatbuddy_bundle() {
+  if [ ! -n "${FLATBUDDY_BUILD_BUNDLE_DEST}" ] ; then
+    return 0
+  fi
+
+  if [ ! -d "${FLATBUDDY_BUILD_REPO_DIRECTORY}" ] ; then
+    return 0
+  fi
+
   APPID_BASE="$(basename "${FLATBUDDY_TARGET_MANIFEST}")"
-  flatpak build-bundle "${FLATBUDDY_BUILD_REPO_DIRECTORY}" "${FLATBUDDY_BUILD_BUNDLE_DEST}" "app/${APPID_BASE%.*}/$(arch)/${FLATBUDDY_BUILD_DEFAULT_BRANCH:-stable}"
+
+  BUNDLE_ARGUMENTS=()
+  if [ "${FLATBUDDY_BUILD_BUNDLE_OCI}" == 1 ] ; then
+    BUNDLE_ARGUMENTS=("${BUNDLE_ARGUMENTS[@]}" "--oci")
+  fi
+  if [ "${FLATBUDDY_BUILD_REPO_SIGN_ID}" != "" ] ; then
+    BUNDLE_ARGUMENTS=("${BUNDLE_ARGUMENTS[@]}" "--gpg-sign=${FLATBUDDY_BUILD_REPO_SIGN_ID}")    
+  fi
+
+  flatpak build-bundle "${FLATBUDDY_BUILD_REPO_DIRECTORY}" "${FLATBUDDY_BUILD_BUNDLE_DEST}" "app/${APPID_BASE%.*}/$(arch)/${FLATBUDDY_BUILD_DEFAULT_BRANCH:-stable}" "${BUNDLE_ARGUMENTS[@]}"
   exit 0
+}
+flatbuddy_reposign() {
+  if [ ! -d "$FLATBUDDY_BUILD_REPO_DIRECTORY" ] ; then
+    return 0
+  fi
+  if [ "${FLATBUDDY_BUILD_REPO_SIGN_ID}" == "" ] ; then
+    return 0
+  fi
+  flatpak build-sign "${FLATBUDDY_BUILD_REPO_DIRECTORY}" "--gpg-sign=${FLATBUDDY_BUILD_REPO_SIGN_ID}" "${FLATBUDDY_BUILD_DEFAULT_BRANCH:-stable}"
+}
+
+if [ "${FLATBUDDY_BUILD_NO_AUTO_RUNTIME}" != 1 ] ; then 
+  TARGET_SDK="$(yq -rc '. | "\(.sdk),\(.runtime-version)"' "${FLATBUDDY_TARGET_MANIFEST}")"
+  if ! flatpak list --json --runtime "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" | jq -rc '.[] | "\(.application_id),\(.branch)"' | grep -F -e "${TARGET_SDK}" &>/dev/null ; then
+    echo "Missing runtime to build this flatpak, installing."
+    SDK="$(cut -f1 -d, <<< "${TARGET_SDK}")"
+    VERSION="$(cut -f2 -d, <<< "${TARGET_SDK}")"
+    ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} flatpak install "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" "runtime/${SDK}//${VERSION}"
+  fi
 fi
 
+flatbuddy_bundle
+flatbuddy_reposign
+
 ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} ${FLATBUDDY_BUILD_BINARY} \
-  ${FLATBUDDY_BUILD_USER_ARGUMENTS} \
+  ${FLATBUDDY_BUILD_USER_ARGUMENTS[@]} \
   "--default-branch=${FLATBUDDY_BUILD_DEFAULT_BRANCH:-stable}" \
   "${FLATBUDDY_BUILD_BUILD_DIRECTORY}" \
   --state-dir "${FLATBUDDY_BUILD_STATE_DIRECTORY}" \
@@ -122,7 +187,5 @@ ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} ${FLATBUDDY_BUILD_BINARY} \
   --disable-rofiles-fuse \
   $FLATBUDDY_TARGET_MANIFEST
 
-if [ -n "${FLATBUDDY_BUILD_BUNDLE_DEST}" ] && [ -d "${FLATBUDDY_BUILD_REPO_DIRECTORY}" ] ; then
-  APPID_BASE="$(basename "${FLATBUDDY_TARGET_MANIFEST}")"
-  flatpak build-bundle "${FLATBUDDY_BUILD_REPO_DIRECTORY}" "${FLATBUDDY_BUILD_BUNDLE_DEST}" "${APPID_BASE%.*}"
-fi
+flatbuddy_bundle
+flatbuddy_reposign
