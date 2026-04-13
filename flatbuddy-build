@@ -161,20 +161,33 @@ flatbuddy_reposign() {
   flatpak build-sign "${FLATBUDDY_BUILD_REPO_DIRECTORY}" "--gpg-sign=${FLATBUDDY_BUILD_REPO_SIGN_ID}" "${FLATBUDDY_BUILD_DEFAULT_BRANCH:-stable}"
 }
 
+flatbuddy_check_runtime() {
+  CHECK_QUERY=$1
+  shift
+  
+  flatpak list --json --runtime "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" | jq -rc '.[] | "\(.application_id),\(.branch)"' | grep -E -e "${CHECK_QUERY}" &>/dev/null
+}
+
 if [ "${FLATBUDDY_BUILD_NO_AUTO_RUNTIME}" != 1 ] ; then 
-  TARGET_SDK="$(yq -rc '. | "\(.sdk),\(.runtime-version)"' "${FLATBUDDY_TARGET_MANIFEST}")"
-  TARGET_RUNTIME="$(yq -rc '. | "\(.runtime),\(.runtime-version)"' "${FLATBUDDY_TARGET_MANIFEST}")"
+  TARGET_VERSION="$(yq -rc '."runtime-version"' "${FLATBUDDY_TARGET_MANIFEST}")"
 
-  for INSTALL_TARGET in $TARGET_SDK $TARGET_RUNTIME ; do
-    if ! flatpak list --json --runtime "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" | jq -rc '.[] | "\(.application_id),\(.branch)"' | grep -F -e "${INSTALL_TARGET}" &>/dev/null ; then
-
-      echo "Missing runtime to build this flatpak, installing."
-      RUNTIME="$(cut -f1 -d, <<< "${INSTALL_TARGET}")"
-      VERSION="$(cut -f2 -d, <<< "${INSTALL_TARGET}")"
-
-      ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} flatpak install "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" "runtime/${RUNTIME}//${VERSION}"
+  for INSTALL_TARGET in $(yq -rc '. | "\(.runtime) \(.sdk)"' "${FLATBUDDY_TARGET_MANIFEST}") ; do
+    if flatbuddy_check_runtime "${INSTALL_TARGET}.*\,.*${TARGET_VERSION}" ; then
+      continue
     fi
-   done
+
+    echo "Missing runtime to build this flatpak, installing."
+    ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} flatpak install "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" "runtime/${INSTALL_TARGET}//${TARGET_VERSION}"
+  done
+
+  for INSTALL_TARGET in $(yq -rc '.sdk-extensions[]' "${FLATBUDDY_TARGET_MANIFEST}") ; do
+    if flatbuddy_check_runtime "${INSTALL_TARGET}" ; then
+      continue
+    fi
+
+    echo "Missing SDK to build this flatpak, installing."
+    ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} flatpak install "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" "runtime/${INSTALL_TARGET}"
+  done
 fi
 
 flatbuddy_bundle
