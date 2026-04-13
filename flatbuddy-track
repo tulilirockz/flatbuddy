@@ -32,6 +32,10 @@ while :; do
       shift
       FLATBUDDY_TRACK_USER="1"
       ;;
+    -n | --no-update)
+      shift
+      FLATBUDDY_TRACK_NO_UPDATE="1"
+      ;;
     --dry-run)
       shift
       FLATBUDDY_TRACK_DRY_RUN="1"
@@ -39,6 +43,11 @@ while :; do
     -v | -d | --verbose | --debug)
       set -x
       shift
+      ;;
+  	--)
+      shift
+      FLATBUDDY_TRACK_EXTRA_ARGS="$*"
+      break
       ;;
     -*)
       printf >&2 "ERROR: Invalid flag '%s'\n\n" "$1"
@@ -78,10 +87,14 @@ if [ "${FLATBUDDY_TRACK_DRY_RUN}" == "1" ] ; then
   FLATBUDDY_TRACK_DRY_RUN_ARGUMENTS=("echo")
 fi
 
+if [ "${FLATBUDDY_TRACK_NO_UPDATE}" != "1" ] ; then
+  FLATBUDDY_TRACK_NO_UPDATE_ARGUMENTS=("--edit-only")
+fi
+
 FLATBUDDY_TRACK_BINARY="flatpak run org.flathub.flatpak-external-data-checker"
 if command -v flatpak-external-data-checker &>/dev/null ; then
   FLATBUDDY_TRACK_BINARY="flatpak-external-data-checker"
 fi
 
 ${FLATBUDDY_TRACK_DRY_RUN_ARGUMENTS} ${FLATBUDDY_TRACK_BINARY} ${FLATBUDDY_TRACK_USER_ARGUMENTS} \
-  "$FLATBUDDY_TARGET_MANIFEST" "$@"
+  "$FLATBUDDY_TARGET_MANIFEST" "${FLATBUDDY_TRACK_NO_UPDATE_ARGUMENTS}" ${FLATBUDDY_TRACK_EXTRA_ARGS}

@@ -82,6 +82,11 @@ while :; do
       set -x
       shift
       ;;
+  	--)
+      shift
+      FLATBUDDY_BUILD_EXTRA_ARGS="$*"
+      break
+      ;;
     -*)
       printf >&2 "ERROR: Invalid flag '%s'\n\n" "$1"
       show_help
@@ -107,7 +112,7 @@ if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
   done < <(find . -maxdepth 1 \( -iname '*.yaml*' -o  -iname "*.yml*" -o -iname "*.json*" \) -print0)
 
   if [ "${FLATBUDDY_TARGET_MANIFEST}" == "" ] ; then
-    printf "%s" "Failed automatically detecting manifest and no manifest specified." 1>&2
+    printf "%s" "Failed to automatically detect manifest and no manifest specified." 1>&2
     exit 1
   fi
 fi 
@@ -204,6 +209,7 @@ ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} ${FLATBUDDY_BUILD_BINARY} \
   --install \
   --force-clean \
   --disable-rofiles-fuse \
+  $FLATBUDDY_BUILD_EXTRA_ARGS \
   $FLATBUDDY_TARGET_MANIFEST
 
 flatbuddy_bundle

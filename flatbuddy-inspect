@@ -40,6 +40,11 @@ while :; do
       set -x
       shift
       ;;
+  	--)
+      shift
+      FLATBUDDY_INSPECT_EXTRA_ARGS="$*"
+      break
+      ;;
     -*)
       printf >&2 "ERROR: Invalid flag '%s'\n\n" "$1"
       show_help
@@ -68,6 +73,7 @@ fi
 ${FLATBUDDY_INSPECT_DRY_RUN_ARGUMENTS} \
   flatpak run --command=jq \
   ${FLATBUDDY_INSPECT_USER_ARGUMENTS} \
+  $FLATBUDDY_INSPECT_EXTRA_ARGS \
   "${FLATBUDDY_TARGET_APPID}" -r '."modules"|.[]|."name"' /usr/manifest.json \
   | sed -E 's#./(.).bst#\1#' \
   | sort -u

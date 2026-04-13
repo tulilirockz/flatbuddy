@@ -40,6 +40,11 @@ while :; do
       set -x
       shift
       ;;
+  	--)
+      shift
+      FLATBUDDY_EXEC_EXTRA_ARGS="$*"
+      break
+      ;;
     -*)
       printf >&2 "ERROR: Invalid flag '%s'\n\n" "$1"
       show_help
@@ -87,5 +92,6 @@ fi
 ${FLATBUDDY_EXEC_DRY_RUN_ARGUMENTS} \
   ${FLATBUDDY_EXEC_BINARY} \
   ${FLATBUDDY_EXEC_USER_ARGUMENTS} \
+  ${FLATBUDDY_EXEC_EXTRA_ARGS} \
   --run "$XDG_CACHE_HOME/flatpak-builder/$(basename "${FLATBUDDY_TARGET_MANIFEST}")/build-dir" \
   "$FLATBUDDY_TARGET_MANIFEST" ${FLATBUDDY_EXEC_ACTION} "$@"
