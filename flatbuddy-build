@@ -175,6 +175,7 @@ flatbuddy_check_runtime() {
 
 if [ "${FLATBUDDY_BUILD_NO_AUTO_RUNTIME}" != 1 ] ; then 
   TARGET_VERSION="$(yq -rc '."runtime-version"' "${FLATBUDDY_TARGET_MANIFEST}")"
+  TARGET_BASE_VERSION="$(yq -rc '."base-version"' "${FLATBUDDY_TARGET_MANIFEST}")"
 
   for INSTALL_TARGET in $(yq -rc '. | "\(.runtime) \(.sdk)"' "${FLATBUDDY_TARGET_MANIFEST}") ; do
     if flatbuddy_check_runtime "${INSTALL_TARGET}.*\,.*${TARGET_VERSION}" ; then
@@ -192,6 +193,15 @@ if [ "${FLATBUDDY_BUILD_NO_AUTO_RUNTIME}" != 1 ] ; then
 
     echo "Missing SDK to build this flatpak, installing."
     ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} flatpak install "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" "runtime/${INSTALL_TARGET}"
+  done
+
+  for INSTALL_TARGET in $(yq -rc '.base' "${FLATBUDDY_TARGET_MANIFEST}") ; do
+    if flatbuddy_check_runtime "${INSTALL_TARGET}" ; then
+      continue
+    fi
+
+    echo "Missing BaseApp to build this flatpak, installing."
+    ${FLATBUDDY_BUILD_DRY_RUN_ARGUMENTS} flatpak install "${FLATBUDDY_BUILD_USER_ARGUMENTS[@]}" "app/${INSTALL_TARGET}//${TARGET_BASE_VERSION}"
   done
 fi
 
