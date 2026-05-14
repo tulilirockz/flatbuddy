@@ -178,6 +178,9 @@ if [ "${FLATBUDDY_BUILD_NO_AUTO_RUNTIME}" != 1 ] ; then
   TARGET_BASE_VERSION="$(yq -rc '."base-version"' "${FLATBUDDY_TARGET_MANIFEST}")"
 
   for INSTALL_TARGET in $(yq -rc '. | "\(.runtime) \(.sdk)"' "${FLATBUDDY_TARGET_MANIFEST}") ; do
+    if [ "${INSTALL_TARGET}" == "null" ] ; then
+      continue
+    fi
     if flatbuddy_check_runtime "${INSTALL_TARGET}.*\,.*${TARGET_VERSION}" ; then
       continue
     fi
@@ -187,6 +190,9 @@ if [ "${FLATBUDDY_BUILD_NO_AUTO_RUNTIME}" != 1 ] ; then
   done
 
   for INSTALL_TARGET in $(yq -rc '.sdk-extensions[]' "${FLATBUDDY_TARGET_MANIFEST}") ; do
+    if [ "${INSTALL_TARGET}" == "null" ] ; then
+      continue
+    fi
     if flatbuddy_check_runtime "${INSTALL_TARGET}" ; then
       continue
     fi
@@ -196,6 +202,9 @@ if [ "${FLATBUDDY_BUILD_NO_AUTO_RUNTIME}" != 1 ] ; then
   done
 
   for INSTALL_TARGET in $(yq -rc '.base' "${FLATBUDDY_TARGET_MANIFEST}") ; do
+    if [ "${INSTALL_TARGET}" == "null" ] ; then
+      continue
+    fi
     if flatbuddy_check_runtime "${INSTALL_TARGET}" ; then
       continue
     fi
