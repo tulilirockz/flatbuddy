@@ -15,7 +15,7 @@ Usage for flatbuddy build:
 Options:
 
 	--no-auto:			Don't automatically install missing SDKs
-	--user:			Run flatpak as the current user
+	--user:				Run flatpak as the current user
 	--branch:			Default Branch to be used for the output
 	--bundle:			Generate flatpak bundle file at location
 	--dry-run:			Only print the command generated
